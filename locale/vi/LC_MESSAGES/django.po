@@ -134,7 +134,7 @@ msgstr "Bài"
 #: judge/admin/contest.py:66 templates/contest/contest.html:190
 #: templates/contest/edit.html:108 templates/contest/edit.html:115
 msgid "Problems"
-msgstr "Bài"
+msgstr "Danh sách bài"
 
 #: judge/admin/contest.py:76 judge/admin/submission.py:249
 #: templates/admin/judge/submission/change_form.html:14
@@ -1147,7 +1147,7 @@ msgstr "mô tả"
 #: judge/models/contest.py:86 judge/models/problem.py:609
 #: judge/models/runtime.py:150
 msgid "problems"
-msgstr "bài"
+msgstr "danh sách bài"
 
 #: judge/models/contest.py:87 judge/models/contest.py:532
 msgid "start time"
