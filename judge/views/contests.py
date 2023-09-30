@@ -173,6 +173,10 @@ class ContestMixin(object):
     slug_url_kwarg = 'contest'
 
     @cached_property
+    def is_in_contest(self):
+        return self.object.is_in_contest(self.request.user)
+
+    @cached_property
     def is_editor(self):
         if not self.request.user.is_authenticated:
             return False
@@ -187,6 +191,11 @@ class ContestMixin(object):
     @cached_property
     def can_edit(self):
         return self.object.is_editable_by(self.request.user)
+
+    @cached_property
+    def can_view_all_problems(self):
+        return self.is_in_contest or self.is_editor or self.is_tester or self.request.user.is_superuser or \
+            not Problem.objects.filter(contests__contest=self.object, is_public=False).exists()
 
     def get_context_data(self, **kwargs):
         context = super(ContestMixin, self).get_context_data(**kwargs)
@@ -208,6 +217,7 @@ class ContestMixin(object):
             context['has_joined'] = False
 
         context['now'] = self.object._now
+        context['is_in_contest'] = self.is_in_contest
         context['is_editor'] = self.is_editor
         context['is_tester'] = self.is_tester
         context['can_edit'] = self.can_edit
@@ -268,8 +278,7 @@ class ContestDetail(ContestMixin, TitleMixin, CommentedDetailView):
     def is_comment_locked(self):
         if self.object.use_clarifications:
             now = timezone.now()
-            if self.object.is_in_contest(self.request.user) or \
-                    (self.object.start_time <= now and now <= self.object.end_time):
+            if self.is_in_contest or (self.object.start_time <= now and now <= self.object.end_time):
                 return True
 
         return super(ContestDetail, self).is_comment_locked()
@@ -282,6 +291,7 @@ class ContestDetail(ContestMixin, TitleMixin, CommentedDetailView):
 
     def get_context_data(self, **kwargs):
         context = super(ContestDetail, self).get_context_data(**kwargs)
+        context['can_view_all_problems'] = self.can_view_all_problems
         context['contest_problems'] = Problem.objects.filter(contests__contest=self.object) \
             .order_by('contests__order').defer('description') \
             .annotate(has_public_editorial=Case(
@@ -340,6 +350,10 @@ class ContestAllProblems(ContestMixin, TitleMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super(ContestAllProblems, self).get_context_data(**kwargs)
+
+        if not self.can_view_all_problems:
+            raise Http404()
+
         context['contest_problems'] = Problem.objects.filter(contests__contest=self.object) \
             .order_by('contests__order') \
             .add_i18n_name(self.request.LANGUAGE_CODE) \
@@ -349,6 +363,10 @@ class ContestAllProblems(ContestMixin, TitleMixin, DetailView):
         points_list = list(self.object.contest_problems.values_list('points').order_by('order'))
         for idx, p in enumerate(context['contest_problems']):
             p.points = points_list[idx][0]
+
+        authenticated = self.request.user.is_authenticated
+        context['completed_problem_ids'] = user_completed_ids(self.request.profile) if authenticated else []
+        context['attempted_problem_ids'] = user_attempted_ids(self.request.profile) if authenticated else []
 
         return context
 
@@ -369,11 +387,12 @@ class ContestClone(ContestMixin, PermissionRequiredMixin, TitleMixin, SingleObje
     def form_valid(self, form):
         contest = self.object
 
-        tags = contest.tags.all()
-        organizations = contest.organizations.all()
-        private_contestants = contest.private_contestants.all()
-        view_contest_scoreboard = contest.view_contest_scoreboard.all()
-        contest_problems = contest.contest_problems.all()
+        # Using list() to force QuerySets evaluation, as `contest.pk = None` affects these queries
+        tags = list(contest.tags.all())
+        organizations = list(contest.organizations.all())
+        private_contestants = list(contest.private_contestants.all())
+        view_contest_scoreboard = list(contest.view_contest_scoreboard.all())
+        contest_problems = list(contest.contest_problems.all())
         old_key = contest.key
 
         contest.pk = None

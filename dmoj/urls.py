@@ -195,6 +195,7 @@ urlpatterns = [
     path('user/<str:user>', include([
         path('', user.UserAboutPage.as_view(), name='user_page'),
         path('/ban', user.UserBan.as_view(), name='user_ban'),
+        path('/unban', user.UserUnban.as_view(), name='user_unban'),
         path('/blog/', paged_list_view(user.UserBlogPage, 'user_blog')),
         path('/comment/', paged_list_view(user.UserCommentPage, 'user_comment')),
         path('/solved/', include([
@@ -274,7 +275,9 @@ urlpatterns = [
 
     path('organizations/', organization.OrganizationList.as_view(), name='organization_list'),
     path('organizations/create', organization.CreateOrganization.as_view(), name='organization_create'),
-    path('organization/<int:pk>-<slug:slug>', include([
+    path('organization/<int:pk>-<path:suffix>',
+         lambda _, pk, suffix: HttpResponsePermanentRedirect('/organization/%s' % suffix)),
+    path('organization/<slug:slug>', include([
         path('', organization.OrganizationHome.as_view(), name='organization_home'),
         path('/users/', organization.OrganizationUsers.as_view(), name='organization_users'),
         path('/join', organization.JoinOrganization.as_view(), name='join_organization'),
@@ -304,7 +307,7 @@ urlpatterns = [
             path('new', organization.BlogPostCreateOrganization.as_view(), name='blog_post_create_organization'),
         ])),
 
-        path('/', lambda _, pk, slug: HttpResponsePermanentRedirect(reverse('organization_home', args=[pk, slug]))),
+        path('/', lambda _, slug: HttpResponsePermanentRedirect(reverse('organization_home', args=[slug]))),
     ])),
 
     path('runtimes/', language.LanguageList.as_view(), name='runtime_list'),
@@ -334,6 +337,7 @@ urlpatterns = [
     path('post/<int:id>-<slug:slug>', include([
         path('', blog.PostView.as_view(), name='blog_post'),
         path('/edit', blog.BlogPostEdit.as_view(), name='blog_post_edit'),
+        path('/delete', blog.BlogPostDelete.as_view(), name='blog_post_delete'),
         path('/', lambda _, id, slug: HttpResponsePermanentRedirect(reverse('blog_post', args=[id, slug]))),
     ])),
 
